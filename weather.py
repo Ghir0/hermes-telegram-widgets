@@ -1,8 +1,8 @@
-"""Weather widget: current conditions and a short forecast, inside the chat.
+"""Weather widget: current conditions, next hours, next days — inside the chat.
 
-Data comes from Open-Meteo: free, no API key, no account, and it answers with plain JSON.
-The widget itself has no network access at all (QuickJS sandbox), so the bot fetches and
-puts the numbers into ``chat_data`` — the widget only draws them.
+Data comes from Open-Meteo: free, no API key, no account, plain JSON. The widget itself has
+no network access (QuickJS sandbox), so the bot fetches and writes the numbers into
+``chat_data``; the widget only draws them.
 
 Location and refresh interval come from the environment:
   WEATHER_LAT   default 43.9102 (Pesaro)
@@ -25,30 +25,39 @@ except ImportError:  # script
 
 WEATHER_HTML = """<!doctype html><html><head><meta charset="utf-8"><style>
 *{box-sizing:border-box}
-body{margin:0;padding:12px 14px;font:13px/1.35 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;
+body{margin:0;padding:13px 15px 10px;font:13px/1.3 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;
 background:var(--tg-theme-bg-color,#fff);color:var(--tg-theme-text-color,#000)}
 .top{display:flex;align-items:baseline;justify-content:space-between}
-.lab{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--tg-theme-hint-color,#707579)}
+.place{font-size:12.5px;font-weight:600;letter-spacing:.01em}
 .when{font-size:10px;color:var(--tg-theme-hint-color,#707579)}
-.now{display:flex;align-items:center;gap:10px;margin:8px 0 4px}
-.glyph{font-size:34px;line-height:1}
-.temp{font-size:34px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.hero{display:flex;align-items:center;justify-content:space-between;margin:6px 0 2px}
+.temp{font-size:42px;font-weight:300;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+.glyph{font-size:40px;line-height:1}
 .desc{font-size:12px;color:var(--tg-theme-hint-color,#707579)}
-.detail{font-size:11px;color:var(--tg-theme-hint-color,#707579);margin-bottom:9px}
-.day{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(127,127,127,.16)}
-.day .d{width:34px;font-size:11px;color:var(--tg-theme-hint-color,#707579);text-transform:uppercase;
-letter-spacing:.06em;flex:0 0 34px}
-.day .g{font-size:15px;flex:0 0 20px;text-align:center}
-.day .r{flex:1;font-size:12px;font-variant-numeric:tabular-nums}
+.hl{font-size:11.5px;color:var(--tg-theme-hint-color,#707579);margin-top:3px}
+.hl b{font-weight:600;color:var(--tg-theme-text-color,#000)}
+.strip{display:flex;gap:2px;margin:11px 0 2px;padding:7px 4px;border-radius:11px;
+background:rgba(127,127,127,.09)}
+.col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:3px 0;border-radius:8px}
+.col.now{background:rgba(127,127,127,.16)}
+.col .h{font-size:9.5px;color:var(--tg-theme-hint-color,#707579);letter-spacing:.03em}
+.col .g{font-size:15px;line-height:1}
+.col .t{font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.day{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid rgba(127,127,127,.14)}
+.day .d{width:32px;font-size:10.5px;color:var(--tg-theme-hint-color,#707579);text-transform:uppercase;
+letter-spacing:.06em;flex:0 0 32px}
+.day .g{font-size:14px;flex:0 0 18px;text-align:center}
+.day .r{flex:1;font-size:11.5px;font-variant-numeric:tabular-nums}
 .day .r b{font-weight:600}
 .day .p{font-size:10px;color:var(--tg-theme-hint-color,#707579);flex:0 0 auto}
-.foot{margin-top:9px;padding-top:7px;border-top:1px solid rgba(127,127,127,.16);
+.foot{margin-top:8px;padding-top:7px;border-top:1px solid rgba(127,127,127,.14);
 font-size:10px;color:var(--tg-theme-hint-color,#707579)}
 </style></head><body>
-<div class="top"><span class="lab" id="lab">Meteo</span><span class="when" id="when"></span></div>
-<div class="now"><span class="glyph" id="glyph">—</span><span class="temp" id="temp">—</span></div>
+<div class="top"><span class="place" id="place">Meteo</span><span class="when" id="when"></span></div>
+<div class="hero"><span class="temp" id="temp">—</span><span class="glyph" id="glyph">—</span></div>
 <div class="desc" id="desc"></div>
-<div class="detail" id="detail"></div>
+<div class="hl" id="hl"></div>
+<div class="strip" id="strip"></div>
 <div id="days"></div>
 <div class="foot">chiudi: chiedi «chiudi il meteo»</div>
 <script>
@@ -58,14 +67,23 @@ function draw(){
  var raw=TelegramWidget.chatData,data=null;
  try{data=raw?JSON.parse(raw):null}catch(e){data=null}
  if(!data){return}
- document.getElementById("lab").textContent=data.p||"Meteo";
+ document.getElementById("place").textContent=data.p||"Meteo";
  document.getElementById("glyph").textContent=data.g||"—";
  document.getElementById("temp").textContent=(data.t===null||data.t===undefined)?"—":Math.round(data.t)+"°";
  document.getElementById("desc").textContent=data.s||"";
- document.getElementById("detail").textContent=data.x||"";
- var out="";
- for(var i=0;i<(data.d||[]).length;i++){
-  var r=data.d[i];
+ document.getElementById("hl").innerHTML=(data.hi!==undefined?
+   "<b>H:"+Math.round(data.hi)+"°</b>  <b>L:"+Math.round(data.lo)+"°</b>":"")+
+   (data.x?"  ·  "+esc(data.x):"");
+ var strip="",hours=data.hh||[];
+ for(var i=0;i<hours.length;i++){
+  var c=hours[i];
+  strip+='<div class="col'+(i===0?" now":"")+'"><span class="h">'+(i===0?"ora":c[0]+"")+'</span>'+
+   '<span class="g">'+esc(c[2])+'</span><span class="t">'+Math.round(c[1])+'°</span></div>';
+ }
+ document.getElementById("strip").innerHTML=strip;
+ var out="",days=data.d||[];
+ for(var j=0;j<days.length;j++){
+  var r=days[j];
   out+='<div class="day"><span class="d">'+esc(r[0])+'</span>'+
    '<span class="g">'+esc(r[3])+'</span>'+
    '<span class="r"><b>'+Math.round(r[2])+'°</b> / '+Math.round(r[1])+'°</span>'+
@@ -103,6 +121,10 @@ def _cache_path():
     return board.state_dir() / "weather.json"
 
 
+def _glyph(code) -> str:
+    return CODES.get(int(code or 0), ("—", ""))[0]
+
+
 def fetch(force: bool = False) -> dict:
     """Open-Meteo, cached: the watcher may ask every two seconds, the API must not."""
     ttl = int(_cfg("WEATHER_TTL", "900"))
@@ -121,6 +143,7 @@ def fetch(force: bool = False) -> dict:
     url = ("https://api.open-meteo.com/v1/forecast"
            f"?latitude={lat}&longitude={lon}"
            "&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m"
+           "&hourly=temperature_2m,weather_code"
            "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
            "&timezone=Europe%2FRome&forecast_days=4")
     try:
@@ -135,6 +158,17 @@ def fetch(force: bool = False) -> dict:
 
     current = payload.get("current", {})
     daily = payload.get("daily", {})
+    hourly = payload.get("hourly", {})
+
+    # prossime 6 ore a partire da quella corrente
+    hours = hourly.get("time", [])
+    stamp = str(current.get("time", ""))[:13] + ":00"
+    start = hours.index(stamp) if stamp in hours else 0
+    next_hours = []
+    for i in range(start, min(start + 6, len(hours))):
+        label = hours[i][11:13]
+        next_hours.append([f"{label}", hourly["temperature_2m"][i], hourly["weather_code"][i]])
+
     data = {
         "_at": time.time(),
         "p": place,
@@ -143,6 +177,7 @@ def fetch(force: bool = False) -> dict:
         "h": current.get("relative_humidity_2m"),
         "w": current.get("wind_speed_10m"),
         "c": current.get("weather_code", 0),
+        "hh": next_hours,
         "d": [],
     }
     for i, day in enumerate(daily.get("time", [])[:4]):
@@ -160,19 +195,23 @@ def weather_state(force: bool = False) -> str:
     detail = []
     if data.get("f") is not None:
         detail.append(f"percepiti {round(float(data['f']))}°")
-    if data.get("h") is not None:
-        detail.append(f"umidità {int(data['h'])}%")
     if data.get("w") is not None:
         detail.append(f"vento {round(float(data['w']))} km/h")
+
+    days = data.get("d", [])
+    today = days[0] if days else [None, None, None]
     state = {
         "u": int(time.time() // 60),
         "p": data.get("p", "Meteo"),
         "t": round(float(data["t"])) if data.get("t") is not None else None,
         "s": label,
         "g": glyph,
+        "hi": round(float(today[2])) if today[2] is not None else None,
+        "lo": round(float(today[1])) if today[1] is not None else None,
         "x": " · ".join(detail),
-        "d": [[row[0], round(float(row[1])), round(float(row[2])), CODES.get(int(row[3]), ("—", ""))[0],
-               int(row[4])] for row in data.get("d", [])],
+        "hh": [[row[0], round(float(row[1])), _glyph(row[2])] for row in data.get("hh", [])],
+        "d": [[row[0], round(float(row[1])), round(float(row[2])), _glyph(row[3]), int(row[4])]
+              for row in days[1:4]],
     }
     return json.dumps(state, ensure_ascii=False, separators=(",", ":"))
 
@@ -203,7 +242,7 @@ def send_weather(chat_id: int, caption: str | None = None, track: bool = True) -
         return {"ok": False, "error": answer.get("description"), "sizes": check}
     message = answer["result"]
     if track:
-        board.register_board(chat_id, message["message_id"], 4,
+        board.register_board(chat_id, message["message_id"], 6,
                              fingerprint=weather_fingerprint(), kind="weather")
     return {"ok": True, "message_id": message["message_id"], "chat_id": chat_id,
             "state_bytes": len(state.encode()), "sizes": check}

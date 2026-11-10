@@ -122,16 +122,22 @@ Status codes: `running` (green), `queued` or `blocked` (blue), idle (grey), fail
 ## The weather card
 
 ```
-METEO                         18:34
-☁  12°
+Pesaro                        18:34
+12°                          ☁
 nuvoloso
-percepiti 10° · umidità 93% · vento 8 km/h
-─────────────────────────────────────
-MAR  🌦  13° / 11°            93%
-MER  🌦  21° / 11°            13%
-GIO  🌦  21° / 15°            75%
-VEN  🌧  20° / 11°            82%
+H:13°  L:11°  ·  percepiti 10° · vento 8 km/h
+┌────┬────┬────┬────┬────┬────┐
+│ora │ 20 │ 21 │ 22 │ 23 │ 00 │
+│ ☁  │ ☁  │ ☁  │ ☁  │ ☁  │ ☁  │
+│12° │12° │11° │11° │11° │11° │
+└────┴────┴────┴────┴────┴────┘
+MER  🌦  13° / 11°          93%
+GIO  🌦  21° / 15°          75%
+VEN  🌧  20° / 11°          82%
+chiudi: chiedi «chiudi il meteo»
 ```
+
+The first hourly column is the current hour, highlighted. Layout follows Telegram's own weather widget: large light-weight temperature, condition line, H/L, then a six-column hour strip.
 
 Data from [Open-Meteo](https://open-meteo.com): free, no API key, no account. The widget has no network access of its own — the bot fetches the numbers and writes them into `chat_data`; the widget only draws them.
 
