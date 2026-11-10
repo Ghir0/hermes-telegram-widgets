@@ -228,7 +228,8 @@ def size_report_weather() -> dict:
     return {"html_bytes": raw, "zlib_bytes": packed, "ok": raw <= 32768 and packed <= 4096}
 
 
-def send_weather(chat_id: int, caption: str | None = None, track: bool = True) -> dict:
+def send_weather(chat_id: int, caption: str | None = None, track: bool = True,
+                 ttl: int | None = 120) -> dict:
     check = size_report_weather()
     if not check["ok"]:
         raise RuntimeError(f"widget too large: {check}")
@@ -243,7 +244,7 @@ def send_weather(chat_id: int, caption: str | None = None, track: bool = True) -
     message = answer["result"]
     if track:
         board.register_board(chat_id, message["message_id"], 6,
-                             fingerprint=weather_fingerprint(), kind="weather")
+                             fingerprint=weather_fingerprint(), kind="weather", ttl=ttl)
     return {"ok": True, "message_id": message["message_id"], "chat_id": chat_id,
             "state_bytes": len(state.encode()), "sizes": check}
 

@@ -197,6 +197,10 @@ This plugin sends nothing anywhere except `api.telegram.org`, and reads only the
 
 There is no close button, and the reason is structural: a widget can only ask the bot with `TelegramWidget.request()`, which needs `allow_queries=True` **and** a bot that handles the `widget_query` update within 15 seconds. python-telegram-bot does not model that update yet, so it never reaches the handler.
 
+Widgets can expire on their own. The weather card and the agent roster are created with a **120-second lifetime**: the watcher deletes them when the clock runs out, so the chat does not fill with stale cards. The task board is the exception — it has no expiry, because it is meant to stay current, and it is closed when you ask.
+
+The lifetime counts from when the widget is **sent**, not from when it is read: Telegram gives bots no read receipts, and the only "viewed" signal available to a widget (`request()` firing when it appears on screen) needs the `widget_query` update that the gateway cannot handle yet. So a widget you open after two minutes is already gone; refresh it again or set a longer `ttl`.
+
 Instead every widget carries the instruction in its footer:
 
 ```

@@ -86,7 +86,7 @@ AGENTS_BOARD_SCHEMA: dict[str, Any] = {
 
 def handle_widget_board(action: str = "send", chat_id: int | None = None,
                         message_id: int | None = None, limit: int = 6,
-                        caption: str | None = None,
+                        caption: str | None = None, ttl: int | None = None,
                         tasks: list[dict] | None = None, **_: Any) -> str:
     limit = max(1, min(int(limit or 6), 6))
     target = chat_id or board.default_chat()
@@ -101,7 +101,8 @@ def handle_widget_board(action: str = "send", chat_id: int | None = None,
                 return json.dumps(board.drop(int(target), int(message_id)), ensure_ascii=False)
             return json.dumps(board.refresh_board(int(target), int(message_id), tasks, limit),
                               ensure_ascii=False)
-        return json.dumps(board.send_board(int(target), tasks, limit, caption), ensure_ascii=False)
+        return json.dumps(board.send_board(int(target), tasks, limit, caption, ttl=ttl),
+                          ensure_ascii=False)
     except Exception as error:  # il tool non deve mai far cadere il turno
         logger.warning("widget_board failed: %s", error)
         return json.dumps({"ok": False, "error": str(error)[:300]}, ensure_ascii=False)
@@ -110,7 +111,7 @@ def handle_widget_board(action: str = "send", chat_id: int | None = None,
 def handle_agents_board(action: str = "send", chat_id: int | None = None,
                         message_id: int | None = None, agent: str | None = None,
                         task: str | None = None, limit: int = 8,
-                        caption: str | None = None, **_: Any) -> str:
+                        caption: str | None = None, ttl: int | None = 120, **_: Any) -> str:
     limit = max(1, min(int(limit or 8), 8))
     try:
         if action == "show":
@@ -130,7 +131,8 @@ def handle_agents_board(action: str = "send", chat_id: int | None = None,
                 return json.dumps(board.drop(int(target), int(message_id)), ensure_ascii=False)
             return json.dumps(agents.refresh_agents(int(target), int(message_id), limit),
                               ensure_ascii=False)
-        return json.dumps(agents.send_agents(int(target), limit, caption), ensure_ascii=False)
+        return json.dumps(agents.send_agents(int(target), limit, caption, ttl=ttl),
+                          ensure_ascii=False)
     except Exception as error:
         logger.warning("agents_board failed: %s", error)
         return json.dumps({"ok": False, "error": str(error)[:300]}, ensure_ascii=False)
@@ -160,7 +162,7 @@ WEATHER_BOARD_SCHEMA: dict[str, Any] = {
 
 def handle_weather_board(action: str = "send", chat_id: int | None = None,
                          message_id: int | None = None, caption: str | None = None,
-                         force: bool = False, **_: Any) -> str:
+                         force: bool = False, ttl: int | None = 120, **_: Any) -> str:
     try:
         if action == "show":
             return json.dumps({"ok": True, "weather": json.loads(weather.weather_state(force))},
@@ -175,7 +177,7 @@ def handle_weather_board(action: str = "send", chat_id: int | None = None,
                 return json.dumps(board.drop(int(target), int(message_id)), ensure_ascii=False)
             return json.dumps(weather.refresh_weather(int(target), int(message_id)),
                               ensure_ascii=False)
-        return json.dumps(weather.send_weather(int(target), caption), ensure_ascii=False)
+        return json.dumps(weather.send_weather(int(target), caption, ttl=ttl), ensure_ascii=False)
     except Exception as error:
         logger.warning("weather_board failed: %s", error)
         return json.dumps({"ok": False, "error": str(error)[:300]}, ensure_ascii=False)

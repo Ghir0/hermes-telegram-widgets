@@ -136,7 +136,7 @@ def size_report_agents() -> dict:
 
 
 def send_agents(chat_id: int, limit: int = 8, caption: str | None = None,
-                track: bool = True) -> dict:
+                track: bool = True, ttl: int | None = 120) -> dict:
     check = size_report_agents()
     if not check["ok"]:
         raise RuntimeError(f"widget too large: {check}")
@@ -153,7 +153,7 @@ def send_agents(chat_id: int, limit: int = 8, caption: str | None = None,
     message = answer["result"]
     if track:
         board.register_board(chat_id, message["message_id"], limit,
-                             fingerprint=agents_fingerprint(limit), kind="agents")
+                             fingerprint=agents_fingerprint(limit), kind="agents", ttl=ttl)
     return {"ok": True, "message_id": message["message_id"], "chat_id": chat_id,
             "state_bytes": len(state.encode()), "sizes": check}
 

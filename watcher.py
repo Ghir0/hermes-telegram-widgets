@@ -41,6 +41,13 @@ def tick(min_interval: float = 1.0) -> int:
     for entry in boards:
         limit = int(entry.get("limit", 6))
         kind = entry.get("kind", "tasks")
+
+        expires_at = entry.get("expires_at")
+        if expires_at and now >= float(expires_at):
+            result = board.drop(int(entry["chat_id"]), int(entry["message_id"]))
+            log(f"scaduto message={entry['message_id']} ({result.get('deleted', '')})")
+            continue
+
         if kind == "agents":
             fingerprint = agents.agents_fingerprint(limit)
         elif kind == "weather":

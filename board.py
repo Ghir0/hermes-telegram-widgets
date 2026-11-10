@@ -178,13 +178,18 @@ def save_boards(boards: list[dict]) -> None:
 
 
 def register_board(chat_id: int, message_id: int, limit: int = 6,
-                   fingerprint: str | None = None, kind: str = "tasks") -> None:
+                   fingerprint: str | None = None, kind: str = "tasks",
+                   ttl: int | None = None) -> None:
+    """ttl in secondi: il watcher elimina il widget alla scadenza. None = resta finché non lo chiedi."""
+    now = int(time.time())
     with _registry_lock():
         boards = [b for b in get_boards() if b.get("message_id") != message_id]
         boards.append({
             "chat_id": chat_id, "message_id": message_id, "limit": limit, "kind": kind,
             "fingerprint": fingerprint if fingerprint is not None else board_state(limit),
-            "updated_at": int(time.time()),
+            "created_at": now,
+            "expires_at": (now + int(ttl)) if ttl else None,
+            "updated_at": now,
         })
         save_boards(boards)
 
@@ -274,7 +279,8 @@ def size_report(html: str = WIDGET_HTML) -> dict:
 
 
 def send_board(chat_id: int, tasks: list[dict] | None = None, limit: int = 6,
-               caption: str | None = None, track: bool = True) -> dict:
+               caption: str | None = None, track: bool = True,
+               ttl: int | None = None) -> dict:
     check = size_report()
     if not check["ok"]:
         raise RuntimeError(f"widget too large: {check}")
@@ -290,7 +296,7 @@ def send_board(chat_id: int, tasks: list[dict] | None = None, limit: int = 6,
         return {"ok": False, "error": answer.get("description"), "sizes": check}
     message = answer["result"]
     if track:
-        register_board(chat_id, message.get("message_id"), limit)
+        register_board(chat_id, message.get("message_id"), limit, ttl=ttl)
     return {"ok": True, "message_id": message.get("message_id"), "chat_id": chat_id,
             "state_bytes": len(state.encode()), "sizes": check}
 
