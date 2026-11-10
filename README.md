@@ -1,6 +1,11 @@
 # hermes-telegram-widgets
 
-A Telegram bot plugin that renders a **live task board inside the chat** using the HTML widget API introduced in Bot API 10.4 — one message that stays current instead of a stream of near-identical notifications.
+A Telegram bot plugin that renders **live boards inside the chat** using the HTML widget API introduced in Bot API 10.4 — one message that stays current instead of a stream of near-identical notifications.
+
+Two widgets:
+
+- **task board** — what is running, what is queued, what closed
+- **agent roster** — which agents exist, who is busy, what each one is doing, and the command to put one to work
 
 Built as a [Hermes Agent](https://hermes-agent.nousresearch.com/docs) plugin; the rendering and API layer is framework-agnostic and can be reused by any bot.
 
@@ -25,6 +30,8 @@ A widget is **fixed code plus changeable state**. The HTML is sent once and neve
 - sends them as an HTML widget in a private chat
 - **refreshes automatically** when the board changes, via a small watcher service
 - never sends an identical state twice, so it stays clear of the bot's send rate limit
+- derives each agent's state from the Kanban (`running` → busy, `queued` → waiting, otherwise idle) instead of inventing a second source of truth
+- activates an agent by queueing a task for it, so the Kanban dispatcher starts the worker as usual
 
 ## Installation (Hermes Agent)
 
@@ -52,13 +59,30 @@ Requirements: Python 3.10+, no third-party packages. `TELEGRAM_BOT_TOKEN` must b
 ```
 widget_board(action="send", caption="Agent board")
 widget_board(action="refresh", message_id=5525)
+
+agents_board(action="send")
+agents_board(action="show")                                   # roster as JSON
+agents_board(action="activate", agent="coder", task="...")     # queue a task
 ```
 
 `send` returns a `message_id`: keep it, it is the only handle for later updates.
 
-### From the shell or cron
+### Commands
+
+```
+hermes widget-board show [--limit 20] [--agent coder]   # print the Kanban in the terminal
+hermes widget-board send [--chat ID] [--caption ...]    # task board in chat
+hermes widget-board agents [--chat ID]                  # agent roster in chat
+hermes widget-board refresh --message ID                # update a widget now
+hermes widget-board drop --message ID                   # delete it and stop tracking
+```
+
+The same commands exist as a standalone script, for cron or when the gateway is down:
 
 ```bash
+python3 cli.py show                       # Kanban in the terminal
+python3 cli.py agents --chat ID           # agent roster in chat
+python3 cli.py activate --agent coder --task "..."   # queue a task for an agent
 python3 cli.py size                       # bytes, raw and compressed
 python3 cli.py send --chat 123456789
 python3 cli.py refresh --chat 123456789 --message 5525
@@ -76,6 +100,19 @@ sudo systemctl enable --now "widget-board-watcher@$USER"
 ```
 
 It is a systemd template unit: the instance name is the user that owns the plugin, so `@root` reads `/root/.hermes/plugins/telegram-widgets`. Adjust `WorkingDirectory` if you installed elsewhere.
+
+## The agent roster
+
+```
+AGENTI                        18:32
+─────────────────────────────────────
+● coder        Landing page      attiva coder
+● assistant    in coda: ricerca  attiva assistant
+○ scientist    libero            attiva scientist
+attiva: chiedi «attiva <agente> con <istruzione>»
+```
+
+Status codes: `running` (green), `queued` or `blocked` (blue), idle (grey), failed (red). "Activation" is deliberately not a second scheduler: it inserts a `queued` row in `tasks` with that assignee, and the existing Kanban dispatcher does the rest.
 
 ## Configuration
 

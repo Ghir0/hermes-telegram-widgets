@@ -18,6 +18,12 @@ from pathlib import Path
 PKG = Path(__file__).resolve().parent
 
 
+def _load_agents():
+    import importlib
+    pkg = sys.modules["telegram_widgets_cli"]
+    return importlib.import_module(pkg.__name__ + ".agents")
+
+
 def _load():
     name = "telegram_widgets_cli"
     spec = importlib.util.spec_from_file_location(name, PKG / "__init__.py",
@@ -30,14 +36,18 @@ def _load():
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Widget task board per Telegram")
-    parser.add_argument("azione", choices=["send", "refresh", "size", "drop"])
+    parser.add_argument("azione", choices=["send", "refresh", "size", "drop", "show",
+                                           "agents", "activate"])
     parser.add_argument("--chat", type=int)
     parser.add_argument("--message", type=int)
     parser.add_argument("--limit", type=int, default=6)
     parser.add_argument("--caption")
+    parser.add_argument("--agent", help="agente da attivare (azione activate)")
+    parser.add_argument("--task", help="istruzione per l'agente (azione activate)")
     args = parser.parse_args()
 
     board = _load()
+    agents = _load_agents()
 
     if args.azione == "size":
         print(json.dumps(board.size_report(), ensure_ascii=False))
@@ -47,6 +57,27 @@ def main() -> int:
     if not chat:
         print(json.dumps({"ok": False, "error": "chat assente"}))
         return 2
+
+    if args.azione == "show":
+        rows = board.load_tasks(max(1, args.limit))
+        if not rows:
+            print("nessun task")
+            return 0
+        for task in rows:
+            print(f"{task['status']:<8} {task['id']:<12} {str(task['assignee'] or '-'):<12} {task['title']}")
+        return 0
+
+    if args.azione == "agents":
+        result = agents.send_agents(chat, max(1, min(args.limit, 8)), args.caption)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result.get("ok") else 1
+
+    if args.azione == "activate":
+        if not args.agent or not args.task:
+            print(json.dumps({"ok": False, "error": "--agent e --task richiesti"}))
+            return 2
+        print(json.dumps(agents.activate(args.agent, args.task), ensure_ascii=False))
+        return 0
 
     if args.azione == "drop":
         if not args.message:

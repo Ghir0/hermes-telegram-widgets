@@ -1,6 +1,6 @@
 name: telegram-widgets
-version: 0.1.0
-description: "Bot API 10.4 HTML widgets inside Telegram chats: a live task board for agent and cron work that updates in place instead of sending another message."
+version: 0.2.0
+description: "Bot API 10.4 HTML widgets inside Telegram chats: a live task board and an agent roster that update in place instead of sending more messages."
 author: Iris / Hermes
 kind: standalone
 platforms:
@@ -8,3 +8,4 @@ platforms:
   - macos
 provides_tools:
   - widget_board
+  - agents_board

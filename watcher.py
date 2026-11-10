@@ -21,6 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import board  # noqa: E402
+import agents  # noqa: E402
 
 
 def log(message: str) -> None:
@@ -38,13 +39,20 @@ def tick(min_interval: float = 1.0) -> int:
     now = time.time()
     for entry in boards:
         limit = int(entry.get("limit", 6))
-        fingerprint = board.board_state(limit)
+        kind = entry.get("kind", "tasks")
+        if kind == "agents":
+            fingerprint = agents.agents_fingerprint(limit)
+        else:
+            fingerprint = board.board_state(limit)
         if fingerprint == entry.get("fingerprint"):
             continue
         if now - float(entry.get("updated_at", 0)) < min_interval:
             continue  # rate-limit guard: one edit per widget per second at most
 
-        result = board.refresh_board(int(entry["chat_id"]), int(entry["message_id"]), None, limit)
+        if kind == "agents":
+            result = agents.refresh_agents(int(entry["chat_id"]), int(entry["message_id"]), limit)
+        else:
+            result = board.refresh_board(int(entry["chat_id"]), int(entry["message_id"]), None, limit)
         if result.get("ok"):
             updated[int(entry["message_id"])] = fingerprint
             refreshed += 1
