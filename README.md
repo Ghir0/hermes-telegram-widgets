@@ -82,6 +82,7 @@ hermes widget-board send [--chat ID] [--caption ...]    # task board in chat
 hermes widget-board agents [--chat ID]                  # agent roster in chat
 hermes widget-board weather [--chat ID] [--force]      # weather card in chat
 hermes widget-board dice [--sides 20] [--chat ID]      # roll a die in chat
+hermes widget dado|meteo|kanban|agenti                 # one command for every widget
 hermes widget-board refresh --message ID                # update a widget now
 hermes widget-board drop --message ID                   # delete it and stop tracking
 ```
@@ -169,7 +170,11 @@ The d20 is drawn as inline SVG (hexagon, inner triangle, facet lines) and the re
 
 The roll runs server-side on `secrets.randbelow`, not `random`: a die that can be predicted is not a die. Supported faces: 4, 6, 8, 10, 12, 20, 100; anything else is rejected rather than rounded.
 
-A tap cannot roll — that needs `widget_query` — so the roll is triggered by asking and the widget is sent (or refreshed) with the new value.
+**Tap the card to roll.** The tumble animation and the new number happen inside the widget, with no round trip: a plain DOM click needs no `widget_query`. The small faces row (`d4` … `d100`) switches the die and rolls it at the same time.
+
+Two RNGs, on purpose: the value in the message the bot sends comes from `secrets.randbelow` (CSPRNG); taps roll locally with `crypto.getRandomValues`, falling back to `Math.random` if the sandbox hides it.
+
+If `chat_data` arrives without a usable result the widget rolls locally instead of printing `NaN` — which is exactly what happened when an older watcher refreshed a dice message with the task-board state.
 
 ## Configuration
 

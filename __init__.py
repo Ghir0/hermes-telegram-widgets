@@ -267,6 +267,34 @@ def _register_cli(subparser: argparse.ArgumentParser) -> None:
     drop.add_argument("--message", type=int, required=True)
 
 
+def _register_widget_cli(subparser: argparse.ArgumentParser) -> None:
+    """``hermes widget <nome>``: un solo comando per tutti i widget."""
+    subparser.add_argument("name", nargs="?", default="kanban",
+                           choices=["dado", "dice", "meteo", "weather", "kanban", "task",
+                                    "agenti", "agents"])
+    subparser.add_argument("--chat", type=int)
+    subparser.add_argument("--sides", type=int, default=20, choices=[4, 6, 8, 10, 12, 20, 100])
+    subparser.add_argument("--caption")
+
+
+def _cli_widget(args: argparse.Namespace) -> int:
+    chat = args.chat or board.default_chat()
+    if not chat:
+        print("chat assente: passa --chat o imposta TELEGRAM_HOME_CHANNEL")
+        return 2
+    name = (args.name or "kanban").lower()
+    if name in ("dado", "dice"):
+        result = dice.send_dice(chat, int(args.sides), args.caption)
+    elif name in ("meteo", "weather"):
+        result = weather.send_weather(chat, args.caption)
+    elif name in ("agenti", "agents"):
+        result = agents.send_agents(chat, 8, args.caption)
+    else:
+        result = board.send_board(chat, None, 6, args.caption)
+    print(json.dumps(result, ensure_ascii=False))
+    return 0 if result.get("ok") else 1
+
+
 def _cli(args: argparse.Namespace) -> int:
     command = getattr(args, "widget_command", None)
     if command == "show":
@@ -320,6 +348,10 @@ def register(ctx) -> None:
                       schema=WEATHER_BOARD_SCHEMA, handler=handle_weather_board, emoji="🌦")
     ctx.register_tool(name="dice_board", toolset="telegram_widgets",
                       schema=DICE_BOARD_SCHEMA, handler=handle_dice_board, emoji="🎲")
+    ctx.register_cli_command(
+        name="widget", help="Manda un widget in chat (dado, meteo, kanban, agenti)",
+        setup_fn=_register_widget_cli, handler_fn=_cli_widget,
+        description="Un comando unico per invocare i widget: dado, meteo, kanban, agenti.")
     ctx.register_cli_command(
         name="widget-board", help="Board Telegram dei task e degli agenti",
         setup_fn=_register_cli, handler_fn=_cli,
