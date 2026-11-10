@@ -34,6 +34,7 @@ def tick(min_interval: float = 1.0) -> int:
         return 0
 
     refreshed = 0
+    updated: dict[int, str] = {}
     now = time.time()
     for entry in boards:
         limit = int(entry.get("limit", 6))
@@ -45,18 +46,15 @@ def tick(min_interval: float = 1.0) -> int:
 
         result = board.refresh_board(int(entry["chat_id"]), int(entry["message_id"]), None, limit)
         if result.get("ok"):
-            entry["fingerprint"] = fingerprint
-            entry["updated_at"] = int(now)
+            updated[int(entry["message_id"])] = fingerprint
             refreshed += 1
             log(f"refresh message={entry['message_id']} bytes={result.get('state_bytes')}")
         elif result.get("dropped"):
-            board.save_boards(board.get_boards())  # refresh_board already unregistered it
             log(f"dropped message={entry['message_id']}: {result.get('error')}")
         else:
             log(f"error message={entry['message_id']}: {result.get('error')}")
 
-    if refreshed:
-        board.save_boards(boards)
+    board.update_fingerprints(updated)
     return refreshed
 
 

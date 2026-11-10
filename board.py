@@ -24,6 +24,8 @@ Configuration (environment, all optional except the token):
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import json
 import os
 import sqlite3
@@ -122,12 +124,14 @@ def compact_state(tasks: list[dict], limit: int = 6) -> str:
     now = time.time()
     rows = []
     for task in tasks[:limit]:
-        age = int((now - int(task.get("ts") or now)) // 60)
+        # absolute minute, not age: an age would change every minute and make an
+        # unchanged board look "changed", burning one message per minute.
+        stamp = int(int(task.get("ts") or now) // 60)
         rows.append([
             STATUSES.get(str(task.get("status", "")).lower(), 1),
             str(task.get("title", ""))[:44],
             str(task.get("assignee") or "")[:12],
-            age,
+            stamp,
         ])
     return json.dumps({"u": int(now), "c": rows}, ensure_ascii=False, separators=(",", ":"))
 
@@ -146,6 +150,19 @@ def _registry_path() -> Path:
     return state_dir() / "boards.json"
 
 
+@contextlib.contextmanager
+def _registry_lock():
+    """Read-modify-write del registro: watcher e CLI scrivono lo stesso file."""
+    lock_path = state_dir() / "boards.json.lock"
+    handle = open(lock_path, "w")
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(handle, fcntl.LOCK_UN)
+        handle.close()
+
+
 def get_boards() -> list[dict]:
     path = _registry_path()
     if not path.exists():
@@ -162,17 +179,36 @@ def save_boards(boards: list[dict]) -> None:
 
 def register_board(chat_id: int, message_id: int, limit: int = 6,
                    fingerprint: str | None = None) -> None:
-    boards = [b for b in get_boards() if b.get("message_id") != message_id]
-    boards.append({
-        "chat_id": chat_id, "message_id": message_id, "limit": limit,
-        "fingerprint": fingerprint if fingerprint is not None else board_state(limit),
-        "updated_at": int(time.time()),
-    })
-    save_boards(boards)
+    with _registry_lock():
+        boards = [b for b in get_boards() if b.get("message_id") != message_id]
+        boards.append({
+            "chat_id": chat_id, "message_id": message_id, "limit": limit,
+            "fingerprint": fingerprint if fingerprint is not None else board_state(limit),
+            "updated_at": int(time.time()),
+        })
+        save_boards(boards)
 
 
 def unregister_board(message_id: int) -> None:
-    save_boards([b for b in get_boards() if b.get("message_id") != message_id])
+    with _registry_lock():
+        save_boards([b for b in get_boards() if b.get("message_id") != message_id])
+
+
+def update_fingerprints(updates: dict[int, str]) -> None:
+    """Aggiorna solo le voci ancora presenti, senza ripristinare quelle cancellate altrove."""
+    if not updates:
+        return
+    with _registry_lock():
+        boards = get_boards()
+        changed = False
+        for entry in boards:
+            message_id = int(entry.get("message_id", 0))
+            if message_id in updates:
+                entry["fingerprint"] = updates[message_id]
+                entry["updated_at"] = int(time.time())
+                changed = True
+        if changed:
+            save_boards(boards)
 
 
 # ---------------------------------------------------------------- widget
@@ -209,14 +245,15 @@ function draw(){
  var out="",n=0;
  for(var i=0;i<data.c.length;i++){
   var r=data.c[i],st=r[0]||0;
+  var mins=Math.floor(Date.now()/60000)-(r[3]||0);
   if(st!==3)n++;
   out+='<div class="row"><span class="dot s'+st+'"></span>'+
    '<span class="t'+(st===3?" done":"")+'">'+esc(r[1])+'</span>'+
    (r[2]?'<span class="who">'+esc(r[2])+'</span>':'')+
-   '<span class="age">'+ago(r[3]||0)+'</span></div>';
+   '<span class="age">'+ago(mins)+'</span></div>';
  }
  box.innerHTML=out;
- document.getElementById("lab").textContent=(n?n+" attivi":"tutto chiuso");
+ document.getElementById("lab").textContent=(data.c.length-n)+" chiusi · "+n+" attivi";
  if(data.u){var d=new Date(data.u*1000);document.getElementById("when").textContent=
   ("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2)}
 }

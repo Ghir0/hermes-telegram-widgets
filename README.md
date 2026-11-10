@@ -123,6 +123,8 @@ This plugin sends nothing anywhere except `api.telegram.org`, and reads only the
 - **Fixed code, variable state.** The HTML never changes after sending, so the template is small and stable; only JSON changes.
 - **Fingerprint before edit.** An identical state would return `message is not modified`; skipping the call entirely also avoids consuming the send rate limit.
 - **No mtime gate in the watcher.** SQLite in WAL mode writes to `kanban.db-wal`, so the main file's mtime often does not move. The watcher re-reads a handful of rows every tick instead of trusting the file timestamp.
+- **State is time-invariant.** Rows carry the absolute minute, not the age: an age changes every minute and would make an unchanged board look changed, so Telegram would repaint the widget once a minute for nothing.
+- **One writer at a time.** The registry is read-modify-written under `flock`, and the watcher merges only the fingerprints it computed instead of saving its whole in-memory copy — otherwise a widget sent from the CLI could be erased by the next tick.
 - **Graceful deletion.** If the message is gone, the widget is dropped from the registry instead of retrying forever.
 
 ## Not implemented (yet)
