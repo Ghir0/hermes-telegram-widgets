@@ -31,7 +31,7 @@ WIDGET_BOARD_SCHEMA: dict[str, Any] = {
     "parameters": {
         "type": "object",
         "properties": {
-            "action": {"type": "string", "enum": ["send", "refresh"],
+            "action": {"type": "string", "enum": ["send", "refresh", "drop"],
                        "description": "send = nuovo widget, refresh = aggiorna quello esistente"},
             "chat_id": {"type": "integer",
                         "description": "Chat di destinazione; se omesso usa la chat principale"},
@@ -69,7 +69,7 @@ AGENTS_BOARD_SCHEMA: dict[str, Any] = {
     "parameters": {
         "type": "object",
         "properties": {
-            "action": {"type": "string", "enum": ["send", "refresh", "activate", "show"],
+            "action": {"type": "string", "enum": ["send", "refresh", "activate", "show", "drop"],
                        "description": "send/refresh il widget; activate mette in coda un task; "
                                       "show restituisce l'elenco in testo"},
             "chat_id": {"type": "integer", "description": "Chat di destinazione"},
@@ -94,9 +94,11 @@ def handle_widget_board(action: str = "send", chat_id: int | None = None,
         return json.dumps({"ok": False, "error": "chat_id assente e TELEGRAM_HOME_CHANNEL non impostata"})
 
     try:
-        if action == "refresh":
+        if action in {"refresh", "drop"}:
             if not message_id:
-                return json.dumps({"ok": False, "error": "message_id richiesto per refresh"})
+                return json.dumps({"ok": False, "error": "message_id richiesto"})
+            if action == "drop":
+                return json.dumps(board.drop(int(target), int(message_id)), ensure_ascii=False)
             return json.dumps(board.refresh_board(int(target), int(message_id), tasks, limit),
                               ensure_ascii=False)
         return json.dumps(board.send_board(int(target), tasks, limit, caption), ensure_ascii=False)
@@ -121,9 +123,11 @@ def handle_agents_board(action: str = "send", chat_id: int | None = None,
         target = chat_id or board.default_chat()
         if not target:
             return json.dumps({"ok": False, "error": "chat_id assente"})
-        if action == "refresh":
+        if action in {"refresh", "drop"}:
             if not message_id:
-                return json.dumps({"ok": False, "error": "message_id richiesto per refresh"})
+                return json.dumps({"ok": False, "error": "message_id richiesto"})
+            if action == "drop":
+                return json.dumps(board.drop(int(target), int(message_id)), ensure_ascii=False)
             return json.dumps(agents.refresh_agents(int(target), int(message_id), limit),
                               ensure_ascii=False)
         return json.dumps(agents.send_agents(int(target), limit, caption), ensure_ascii=False)
@@ -142,7 +146,7 @@ WEATHER_BOARD_SCHEMA: dict[str, Any] = {
     "parameters": {
         "type": "object",
         "properties": {
-            "action": {"type": "string", "enum": ["send", "refresh", "show"]},
+            "action": {"type": "string", "enum": ["send", "refresh", "show", "drop"]},
             "chat_id": {"type": "integer", "description": "Chat di destinazione"},
             "message_id": {"type": "integer", "description": "Obbligatorio con action=refresh"},
             "caption": {"type": "string", "description": "Didascalia opzionale"},
@@ -164,9 +168,11 @@ def handle_weather_board(action: str = "send", chat_id: int | None = None,
         target = chat_id or board.default_chat()
         if not target:
             return json.dumps({"ok": False, "error": "chat_id assente"})
-        if action == "refresh":
+        if action in {"refresh", "drop"}:
             if not message_id:
-                return json.dumps({"ok": False, "error": "message_id richiesto per refresh"})
+                return json.dumps({"ok": False, "error": "message_id richiesto"})
+            if action == "drop":
+                return json.dumps(board.drop(int(target), int(message_id)), ensure_ascii=False)
             return json.dumps(weather.refresh_weather(int(target), int(message_id)),
                               ensure_ascii=False)
         return json.dumps(weather.send_weather(int(target), caption), ensure_ascii=False)

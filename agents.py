@@ -42,7 +42,7 @@ font-size:10px;color:var(--tg-theme-hint-color,#707579)}
 </style></head><body>
 <div class="top"><span class="lab" id="lab">Agenti</span><span class="when" id="when"></span></div>
 <div id="list"></div>
-<div class="foot" id="foot">attiva: chiedi «attiva &lt;agente&gt; con &lt;istruzione&gt;»</div>
+<div class="foot" id="foot">attiva: «attiva &lt;agente&gt; con &lt;istruzione&gt;» · chiudi: «chiudi gli agenti»</div>
 <script>
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){
  return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}

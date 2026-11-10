@@ -42,12 +42,15 @@ letter-spacing:.06em;flex:0 0 34px}
 .day .r{flex:1;font-size:12px;font-variant-numeric:tabular-nums}
 .day .r b{font-weight:600}
 .day .p{font-size:10px;color:var(--tg-theme-hint-color,#707579);flex:0 0 auto}
+.foot{margin-top:9px;padding-top:7px;border-top:1px solid rgba(127,127,127,.16);
+font-size:10px;color:var(--tg-theme-hint-color,#707579)}
 </style></head><body>
 <div class="top"><span class="lab" id="lab">Meteo</span><span class="when" id="when"></span></div>
 <div class="now"><span class="glyph" id="glyph">—</span><span class="temp" id="temp">—</span></div>
 <div class="desc" id="desc"></div>
 <div class="detail" id="detail"></div>
 <div id="days"></div>
+<div class="foot">chiudi: chiedi «chiudi il meteo»</div>
 <script>
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){
  return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}

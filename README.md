@@ -187,6 +187,23 @@ Telegram automatically marks sent widgets as **protected content**. Clients ther
 
 This plugin sends nothing anywhere except `api.telegram.org`, and reads only the local Kanban database. It stores no message text; the registry keeps chat id, message id and a fingerprint of the board.
 
+## Closing a widget
+
+There is no close button, and the reason is structural: a widget can only ask the bot with `TelegramWidget.request()`, which needs `allow_queries=True` **and** a bot that handles the `widget_query` update within 15 seconds. python-telegram-bot does not model that update yet, so it never reaches the handler.
+
+Instead every widget carries the instruction in its footer:
+
+```
+chiudi: chiedi «chiudi il meteo»
+```
+
+Say it to the agent and it calls the `drop` action: the message is deleted and the watcher stops tracking it.
+
+```
+widget_board(action="drop", message_id=5549)
+hermes widget-board drop --message 5549
+```
+
 ## Design notes
 
 - **Fixed code, variable state.** The HTML never changes after sending, so the template is small and stable; only JSON changes.

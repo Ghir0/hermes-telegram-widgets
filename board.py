@@ -231,9 +231,12 @@ color:var(--tg-theme-hint-color,#707579);flex:0 0 auto;max-width:88px;overflow:h
 text-overflow:ellipsis;white-space:nowrap}
 .age{font-size:10px;color:var(--tg-theme-hint-color,#707579);flex:0 0 auto;font-variant-numeric:tabular-nums}
 .empty{padding:16px 0;text-align:center;font-size:12px;color:var(--tg-theme-hint-color,#707579)}
+.foot{margin-top:9px;padding-top:8px;border-top:1px solid rgba(127,127,127,.16);
+font-size:10px;color:var(--tg-theme-hint-color,#707579)}
 </style></head><body>
 <div class="top"><span class="lab" id="lab">Task</span><span class="when" id="when"></span></div>
 <div id="list"><div class="empty">nessun task</div></div>
+<div class="foot" id="foot">chiudi: chiedi «chiudi la board»</div>
 <script>
 function ago(m){if(m<1)return"ora";if(m<60)return m+"m";var h=Math.floor(m/60);
 if(h<24)return h+"h";return Math.floor(h/24)+"g"}
@@ -290,6 +293,18 @@ def send_board(chat_id: int, tasks: list[dict] | None = None, limit: int = 6,
         register_board(chat_id, message.get("message_id"), limit)
     return {"ok": True, "message_id": message.get("message_id"), "chat_id": chat_id,
             "state_bytes": len(state.encode()), "sizes": check}
+
+
+def drop(chat_id: int, message_id: int) -> dict:
+    """Elimina il messaggio e smette di seguirlo: è ciò che esegue «chiudi il widget»."""
+    answer = api("deleteMessage", {"chat_id": chat_id, "message_id": message_id})
+    unregister_board(message_id)
+    if answer.get("ok"):
+        return {"ok": True, "deleted": message_id}
+    description = str(answer.get("description", ""))
+    if "not found" in description.lower():
+        return {"ok": True, "deleted": message_id, "already_gone": True}
+    return {"ok": False, "error": description}
 
 
 def refresh_board(chat_id: int, message_id: int, tasks: list[dict] | None = None,
