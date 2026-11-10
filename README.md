@@ -2,11 +2,12 @@
 
 A Telegram bot plugin that renders **live boards inside the chat** using the HTML widget API introduced in Bot API 10.4 — one message that stays current instead of a stream of near-identical notifications.
 
-Three widgets:
+Four widgets:
 
 - **task board** — what is running, what is queued, what closed
 - **agent roster** — which agents exist, who is busy, what each one is doing, and the command to put one to work
 - **weather card** — current conditions and a four-day forecast for a place you configure
+- **dice** — a d20 (or d4/d6/d8/d10/d12/d100) in fantasy dress, rolled with a CSPRNG
 
 Built as a [Hermes Agent](https://hermes-agent.nousresearch.com/docs) plugin; the rendering and API layer is framework-agnostic and can be reused by any bot.
 
@@ -67,6 +68,8 @@ agents_board(action="activate", agent="coder", task="...")     # queue a task
 
 weather_board(action="send")
 weather_board(action="show")                                  # data as JSON
+
+dice_board(action="roll", sides=20)                           # roll and send
 ```
 
 `send` returns a `message_id`: keep it, it is the only handle for later updates.
@@ -78,6 +81,7 @@ hermes widget-board show [--limit 20] [--agent coder]   # print the Kanban in th
 hermes widget-board send [--chat ID] [--caption ...]    # task board in chat
 hermes widget-board agents [--chat ID]                  # agent roster in chat
 hermes widget-board weather [--chat ID] [--force]      # weather card in chat
+hermes widget-board dice [--sides 20] [--chat ID]      # roll a die in chat
 hermes widget-board refresh --message ID                # update a widget now
 hermes widget-board drop --message ID                   # delete it and stop tracking
 ```
@@ -151,6 +155,21 @@ Configuration:
 | `WEATHER_TTL` | `900` | seconds before the data is fetched again |
 
 The watcher refreshes the card only when the published numbers change, so a stable forecast costs no messages. If Open-Meteo is unreachable the last good payload is reused rather than blanking the card.
+
+## The dice
+
+```
+D20                            19:52
+⬡  16 / 20
+   colpo netto
+chiudi: «chiudi il dado»
+```
+
+The d20 is drawn as inline SVG (hexagon, inner triangle, facet lines) and the result animates on every change. A natural 20 becomes a gold badge — `colpo critico` — and a 1 reads `fallimento critico`.
+
+The roll runs server-side on `secrets.randbelow`, not `random`: a die that can be predicted is not a die. Supported faces: 4, 6, 8, 10, 12, 20, 100; anything else is rejected rather than rounded.
+
+A tap cannot roll — that needs `widget_query` — so the roll is triggered by asking and the widget is sent (or refreshed) with the new value.
 
 ## Configuration
 

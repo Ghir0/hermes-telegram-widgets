@@ -16,7 +16,7 @@ import json
 import logging
 from typing import Any
 
-from . import agents, board, weather
+from . import agents, board, dice, weather
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +183,52 @@ def handle_weather_board(action: str = "send", chat_id: int | None = None,
         return json.dumps({"ok": False, "error": str(error)[:300]}, ensure_ascii=False)
 
 
+DICE_BOARD_SCHEMA: dict[str, Any] = {
+    "name": "dice_board",
+    "description": (
+        "Widget dado in stile fantasy: tira un d20 (o d4/d6/d8/d10/d12/d100) e mostra il "
+        "risultato con animazione. Il tiro usa secrets, non random. Un tap non può tirare: "
+        "chiedilo a parole e il widget viene inviato o aggiornato."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "action": {"type": "string", "enum": ["roll", "refresh", "drop"]},
+            "sides": {"type": "integer", "enum": [4, 6, 8, 10, 12, 20, 100],
+                      "description": "Facce del dado (default 20)"},
+            "chat_id": {"type": "integer"},
+            "message_id": {"type": "integer", "description": "Per refresh o drop"},
+            "caption": {"type": "string"},
+            "ttl": {"type": "integer", "description": "Secondi prima della chiusura automatica (default 120)"},
+        },
+        "required": ["action"],
+    },
+}
+
+
+def handle_dice_board(action: str = "roll", sides: int = 20, chat_id: int | None = None,
+                      message_id: int | None = None, caption: str | None = None,
+                      ttl: int | None = 120, **_: Any) -> str:
+    try:
+        target = chat_id or board.default_chat()
+        if not target:
+            return json.dumps({"ok": False, "error": "chat_id assente"})
+        if action == "drop":
+            if not message_id:
+                return json.dumps({"ok": False, "error": "message_id richiesto"})
+            return json.dumps(board.drop(int(target), int(message_id)), ensure_ascii=False)
+        if action == "refresh":
+            if not message_id:
+                return json.dumps({"ok": False, "error": "message_id richiesto"})
+            return json.dumps(dice.refresh_dice(int(target), int(message_id), int(sides)),
+                              ensure_ascii=False)
+        return json.dumps(dice.send_dice(int(target), int(sides), caption, ttl=ttl),
+                          ensure_ascii=False)
+    except Exception as error:
+        logger.warning("dice_board failed: %s", error)
+        return json.dumps({"ok": False, "error": str(error)[:300]}, ensure_ascii=False)
+
+
 # ---------------------------------------------------------------- CLI
 
 def _register_cli(subparser: argparse.ArgumentParser) -> None:
@@ -206,6 +252,11 @@ def _register_cli(subparser: argparse.ArgumentParser) -> None:
     weather_cmd.add_argument("--chat", type=int)
     weather_cmd.add_argument("--caption")
     weather_cmd.add_argument("--force", action="store_true", help="Ignora la cache")
+
+    dice_cmd = subs.add_parser("dice", help="Tira un dado in chat")
+    dice_cmd.add_argument("--chat", type=int)
+    dice_cmd.add_argument("--sides", type=int, default=20, choices=[4, 6, 8, 10, 12, 20, 100])
+    dice_cmd.add_argument("--caption")
 
     refresh = subs.add_parser("refresh", help="Aggiorna un widget già inviato")
     refresh.add_argument("--chat", type=int)
@@ -239,6 +290,8 @@ def _cli(args: argparse.Namespace) -> int:
         result = board.send_board(chat, None, max(1, min(args.limit, 6)), args.caption)
     elif command == "agents":
         result = agents.send_agents(chat, max(1, min(args.limit, 8)), args.caption)
+    elif command == "dice":
+        result = dice.send_dice(chat, int(getattr(args, "sides", 20)), args.caption)
     elif command == "weather":
         if getattr(args, "force", False):
             weather.fetch(force=True)
@@ -265,6 +318,8 @@ def register(ctx) -> None:
                       schema=AGENTS_BOARD_SCHEMA, handler=handle_agents_board, emoji="🤖")
     ctx.register_tool(name="weather_board", toolset="telegram_widgets",
                       schema=WEATHER_BOARD_SCHEMA, handler=handle_weather_board, emoji="🌦")
+    ctx.register_tool(name="dice_board", toolset="telegram_widgets",
+                      schema=DICE_BOARD_SCHEMA, handler=handle_dice_board, emoji="🎲")
     ctx.register_cli_command(
         name="widget-board", help="Board Telegram dei task e degli agenti",
         setup_fn=_register_cli, handler_fn=_cli,

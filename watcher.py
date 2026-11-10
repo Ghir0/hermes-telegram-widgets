@@ -48,6 +48,8 @@ def tick(min_interval: float = 1.0) -> int:
             log(f"scaduto message={entry['message_id']} ({result.get('deleted', '')})")
             continue
 
+        if kind == "dice":
+            continue  # nessuno stato da inseguire: cambia solo quando qualcuno tira
         if kind == "agents":
             fingerprint = agents.agents_fingerprint(limit)
         elif kind == "weather":

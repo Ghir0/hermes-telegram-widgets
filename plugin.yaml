@@ -1,6 +1,6 @@
 name: telegram-widgets
-version: 0.3.0
-description: "Bot API 10.4 HTML widgets inside Telegram chats: a live task board, an agent roster and a weather card that update in place instead of sending more messages."
+version: 0.4.0
+description: "Bot API 10.4 HTML widgets inside Telegram chats: a live task board, an agent roster, a weather card and a fantasy dice that update in place instead of sending more messages."
 author: Iris / Hermes
 kind: standalone
 platforms:
@@ -10,3 +10,4 @@ provides_tools:
   - widget_board
   - agents_board
   - weather_board
+  - dice_board
