@@ -16,7 +16,7 @@ import json
 import logging
 from typing import Any
 
-from . import agents, board
+from . import agents, board, weather
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +132,49 @@ def handle_agents_board(action: str = "send", chat_id: int | None = None,
         return json.dumps({"ok": False, "error": str(error)[:300]}, ensure_ascii=False)
 
 
+WEATHER_BOARD_SCHEMA: dict[str, Any] = {
+    "name": "weather_board",
+    "description": (
+        "Invia in chat un widget con il meteo attuale e le previsioni dei prossimi giorni "
+        "(Open-Meteo, nessuna chiave). action=send crea il messaggio e restituisce message_id; "
+        "action=refresh aggiorna quel messaggio; action=show restituisce i dati in JSON."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "action": {"type": "string", "enum": ["send", "refresh", "show"]},
+            "chat_id": {"type": "integer", "description": "Chat di destinazione"},
+            "message_id": {"type": "integer", "description": "Obbligatorio con action=refresh"},
+            "caption": {"type": "string", "description": "Didascalia opzionale"},
+            "force": {"type": "boolean",
+                      "description": "Ignora la cache (15 minuti) e richiede subito i dati"},
+        },
+        "required": ["action"],
+    },
+}
+
+
+def handle_weather_board(action: str = "send", chat_id: int | None = None,
+                         message_id: int | None = None, caption: str | None = None,
+                         force: bool = False, **_: Any) -> str:
+    try:
+        if action == "show":
+            return json.dumps({"ok": True, "weather": json.loads(weather.weather_state(force))},
+                              ensure_ascii=False)
+        target = chat_id or board.default_chat()
+        if not target:
+            return json.dumps({"ok": False, "error": "chat_id assente"})
+        if action == "refresh":
+            if not message_id:
+                return json.dumps({"ok": False, "error": "message_id richiesto per refresh"})
+            return json.dumps(weather.refresh_weather(int(target), int(message_id)),
+                              ensure_ascii=False)
+        return json.dumps(weather.send_weather(int(target), caption), ensure_ascii=False)
+    except Exception as error:
+        logger.warning("weather_board failed: %s", error)
+        return json.dumps({"ok": False, "error": str(error)[:300]}, ensure_ascii=False)
+
+
 # ---------------------------------------------------------------- CLI
 
 def _register_cli(subparser: argparse.ArgumentParser) -> None:
@@ -150,6 +193,11 @@ def _register_cli(subparser: argparse.ArgumentParser) -> None:
     agents_cmd.add_argument("--chat", type=int)
     agents_cmd.add_argument("--limit", type=int, default=8)
     agents_cmd.add_argument("--caption")
+
+    weather_cmd = subs.add_parser("weather", help="Invia il meteo e le previsioni in chat")
+    weather_cmd.add_argument("--chat", type=int)
+    weather_cmd.add_argument("--caption")
+    weather_cmd.add_argument("--force", action="store_true", help="Ignora la cache")
 
     refresh = subs.add_parser("refresh", help="Aggiorna un widget già inviato")
     refresh.add_argument("--chat", type=int)
@@ -183,6 +231,10 @@ def _cli(args: argparse.Namespace) -> int:
         result = board.send_board(chat, None, max(1, min(args.limit, 6)), args.caption)
     elif command == "agents":
         result = agents.send_agents(chat, max(1, min(args.limit, 8)), args.caption)
+    elif command == "weather":
+        if getattr(args, "force", False):
+            weather.fetch(force=True)
+        result = weather.send_weather(chat, args.caption)
     elif command == "refresh":
         result = board.refresh_board(chat, args.message, None, 6)
     elif command == "drop":
@@ -203,6 +255,8 @@ def register(ctx) -> None:
                       schema=WIDGET_BOARD_SCHEMA, handler=handle_widget_board, emoji="🗂")
     ctx.register_tool(name="agents_board", toolset="telegram_widgets",
                       schema=AGENTS_BOARD_SCHEMA, handler=handle_agents_board, emoji="🤖")
+    ctx.register_tool(name="weather_board", toolset="telegram_widgets",
+                      schema=WEATHER_BOARD_SCHEMA, handler=handle_weather_board, emoji="🌦")
     ctx.register_cli_command(
         name="widget-board", help="Board Telegram dei task e degli agenti",
         setup_fn=_register_cli, handler_fn=_cli,

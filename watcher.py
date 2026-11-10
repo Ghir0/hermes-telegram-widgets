@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import board  # noqa: E402
 import agents  # noqa: E402
+import weather  # noqa: E402
 
 
 def log(message: str) -> None:
@@ -42,6 +43,8 @@ def tick(min_interval: float = 1.0) -> int:
         kind = entry.get("kind", "tasks")
         if kind == "agents":
             fingerprint = agents.agents_fingerprint(limit)
+        elif kind == "weather":
+            fingerprint = weather.weather_fingerprint()
         else:
             fingerprint = board.board_state(limit)
         if fingerprint == entry.get("fingerprint"):
@@ -51,6 +54,8 @@ def tick(min_interval: float = 1.0) -> int:
 
         if kind == "agents":
             result = agents.refresh_agents(int(entry["chat_id"]), int(entry["message_id"]), limit)
+        elif kind == "weather":
+            result = weather.refresh_weather(int(entry["chat_id"]), int(entry["message_id"]))
         else:
             result = board.refresh_board(int(entry["chat_id"]), int(entry["message_id"]), None, limit)
         if result.get("ok"):

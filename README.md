@@ -2,10 +2,11 @@
 
 A Telegram bot plugin that renders **live boards inside the chat** using the HTML widget API introduced in Bot API 10.4 — one message that stays current instead of a stream of near-identical notifications.
 
-Two widgets:
+Three widgets:
 
 - **task board** — what is running, what is queued, what closed
 - **agent roster** — which agents exist, who is busy, what each one is doing, and the command to put one to work
+- **weather card** — current conditions and a four-day forecast for a place you configure
 
 Built as a [Hermes Agent](https://hermes-agent.nousresearch.com/docs) plugin; the rendering and API layer is framework-agnostic and can be reused by any bot.
 
@@ -63,6 +64,9 @@ widget_board(action="refresh", message_id=5525)
 agents_board(action="send")
 agents_board(action="show")                                   # roster as JSON
 agents_board(action="activate", agent="coder", task="...")     # queue a task
+
+weather_board(action="send")
+weather_board(action="show")                                  # data as JSON
 ```
 
 `send` returns a `message_id`: keep it, it is the only handle for later updates.
@@ -73,6 +77,7 @@ agents_board(action="activate", agent="coder", task="...")     # queue a task
 hermes widget-board show [--limit 20] [--agent coder]   # print the Kanban in the terminal
 hermes widget-board send [--chat ID] [--caption ...]    # task board in chat
 hermes widget-board agents [--chat ID]                  # agent roster in chat
+hermes widget-board weather [--chat ID] [--force]      # weather card in chat
 hermes widget-board refresh --message ID                # update a widget now
 hermes widget-board drop --message ID                   # delete it and stop tracking
 ```
@@ -113,6 +118,33 @@ attiva: chiedi «attiva <agente> con <istruzione>»
 ```
 
 Status codes: `running` (green), `queued` or `blocked` (blue), idle (grey), failed (red). "Activation" is deliberately not a second scheduler: it inserts a `queued` row in `tasks` with that assignee, and the existing Kanban dispatcher does the rest.
+
+## The weather card
+
+```
+METEO                         18:34
+☁  12°
+nuvoloso
+percepiti 10° · umidità 93% · vento 8 km/h
+─────────────────────────────────────
+MAR  🌦  13° / 11°            93%
+MER  🌦  21° / 11°            13%
+GIO  🌦  21° / 15°            75%
+VEN  🌧  20° / 11°            82%
+```
+
+Data from [Open-Meteo](https://open-meteo.com): free, no API key, no account. The widget has no network access of its own — the bot fetches the numbers and writes them into `chat_data`; the widget only draws them.
+
+Configuration:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `WEATHER_LAT` | `43.9102` | latitude |
+| `WEATHER_LON` | `12.9136` | longitude |
+| `WEATHER_PLACE` | `Pesaro` | label shown in the header |
+| `WEATHER_TTL` | `900` | seconds before the data is fetched again |
+
+The watcher refreshes the card only when the published numbers change, so a stable forecast costs no messages. If Open-Meteo is unreachable the last good payload is reused rather than blanking the card.
 
 ## Configuration
 
