@@ -1,0 +1,11 @@
+.env
+.env.*
+*.token
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+boards.json
+*.db
+*.db-wal
+*.db-shm
