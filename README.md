@@ -62,6 +62,7 @@ widget_board(action="refresh", message_id=5525)
 python3 cli.py size                       # bytes, raw and compressed
 python3 cli.py send --chat 123456789
 python3 cli.py refresh --chat 123456789 --message 5525
+python3 cli.py drop --chat 123456789 --message 5525   # delete it and stop tracking
 python3 watcher.py --once                 # single pass, cron-friendly
 ```
 

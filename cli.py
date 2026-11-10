@@ -30,7 +30,7 @@ def _load():
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Widget task board per Telegram")
-    parser.add_argument("azione", choices=["send", "refresh", "size"])
+    parser.add_argument("azione", choices=["send", "refresh", "size", "drop"])
     parser.add_argument("--chat", type=int)
     parser.add_argument("--message", type=int)
     parser.add_argument("--limit", type=int, default=6)
@@ -47,6 +47,16 @@ def main() -> int:
     if not chat:
         print(json.dumps({"ok": False, "error": "chat assente"}))
         return 2
+
+    if args.azione == "drop":
+        if not args.message:
+            print(json.dumps({"ok": False, "error": "--message richiesto"}))
+            return 2
+        answer = board.api("deleteMessage", {"chat_id": chat, "message_id": args.message})
+        board.unregister_board(args.message)
+        print(json.dumps({"ok": bool(answer.get("ok")), "deleted": args.message,
+                          "error": answer.get("description")}, ensure_ascii=False))
+        return 0 if answer.get("ok") else 1
 
     if args.azione == "send":
         result = board.send_board(chat, None, max(1, min(args.limit, 6)), args.caption)
